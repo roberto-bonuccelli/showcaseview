@@ -20,6 +20,7 @@
  * SOFTWARE.
  */
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -70,11 +71,6 @@ class ShapeClipper extends CustomClipper<ui.Path> {
     final linkedObjectLength = linkedObjectData.length;
     for (var i = 0; i < linkedObjectLength; i++) {
       final widgetInfo = linkedObjectData[i];
-      final customRadius = widgetInfo.isCircle
-          ? Radius.circular(
-              widgetInfo.rect.height + widgetInfo.overlayPadding.vertical,
-            )
-          : Constants.defaultTargetRadius;
 
       final rect = Rect.fromLTRB(
         widgetInfo.rect.left - widgetInfo.overlayPadding.left,
@@ -85,19 +81,34 @@ class ShapeClipper extends CustomClipper<ui.Path> {
 
       /// We have use this approach so that overlapping cutout will merge with
       /// each other
+      final cutoutPath = Path();
+      if (widgetInfo.isCircle) {
+        // Create a square rect centered on the original rect for a perfect circle
+        // Use the maximum dimension to ensure the circle is large enough
+        final diameter = math.max(rect.width, rect.height);
+        final circleRect = Rect.fromCenter(
+          center: rect.center,
+          width: diameter,
+          height: diameter,
+        );
+        cutoutPath.addOval(circleRect);
+      } else {
+        final customRadius = Constants.defaultTargetRadius;
+        cutoutPath.addRRect(
+          RRect.fromRectAndCorners(
+            rect,
+            topLeft: (widgetInfo.radius?.topLeft ?? customRadius),
+            topRight: (widgetInfo.radius?.topRight ?? customRadius),
+            bottomLeft: (widgetInfo.radius?.bottomLeft ?? customRadius),
+            bottomRight: (widgetInfo.radius?.bottomRight ?? customRadius),
+          ),
+        );
+      }
+
       mainObjectPath = Path.combine(
         PathOperation.difference,
         mainObjectPath,
-        Path()
-          ..addRRect(
-            RRect.fromRectAndCorners(
-              rect,
-              topLeft: (widgetInfo.radius?.topLeft ?? customRadius),
-              topRight: (widgetInfo.radius?.topRight ?? customRadius),
-              bottomLeft: (widgetInfo.radius?.bottomLeft ?? customRadius),
-              bottomRight: (widgetInfo.radius?.bottomRight ?? customRadius),
-            ),
-          ),
+        cutoutPath,
       );
     }
 
@@ -121,12 +132,6 @@ class ShapeClipper extends CustomClipper<ui.Path> {
 
     // Add all showcase shapes to the cutouts path
     for (final widgetInfo in linkedObjectData) {
-      final customRadius = widgetInfo.isCircle
-          ? Radius.circular(
-              widgetInfo.rect.height + widgetInfo.overlayPadding.vertical,
-            )
-          : Constants.defaultTargetRadius;
-
       final rect = Rect.fromLTRB(
         widgetInfo.rect.left - widgetInfo.overlayPadding.left,
         widgetInfo.rect.top - widgetInfo.overlayPadding.top,
@@ -134,15 +139,28 @@ class ShapeClipper extends CustomClipper<ui.Path> {
         widgetInfo.rect.bottom + widgetInfo.overlayPadding.bottom,
       );
 
-      cutoutsPath.addRRect(
-        RRect.fromRectAndCorners(
-          rect,
-          topLeft: (widgetInfo.radius?.topLeft ?? customRadius),
-          topRight: (widgetInfo.radius?.topRight ?? customRadius),
-          bottomLeft: (widgetInfo.radius?.bottomLeft ?? customRadius),
-          bottomRight: (widgetInfo.radius?.bottomRight ?? customRadius),
-        ),
-      );
+      if (widgetInfo.isCircle) {
+        // Create a square rect centered on the original rect for a perfect circle
+        // Use the maximum dimension to ensure the circle is large enough
+        final diameter = math.max(rect.width, rect.height);
+        final circleRect = Rect.fromCenter(
+          center: rect.center,
+          width: diameter,
+          height: diameter,
+        );
+        cutoutsPath.addOval(circleRect);
+      } else {
+        final customRadius = Constants.defaultTargetRadius;
+        cutoutsPath.addRRect(
+          RRect.fromRectAndCorners(
+            rect,
+            topLeft: (widgetInfo.radius?.topLeft ?? customRadius),
+            topRight: (widgetInfo.radius?.topRight ?? customRadius),
+            bottomLeft: (widgetInfo.radius?.bottomLeft ?? customRadius),
+            bottomRight: (widgetInfo.radius?.bottomRight ?? customRadius),
+          ),
+        );
+      }
     }
 
     // Create the final path by subtracting all cutouts from the screen path
